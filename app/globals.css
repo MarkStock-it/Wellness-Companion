@@ -105,6 +105,16 @@ input[type="date"].field:disabled {
 .step-enter-forward { animation: step-enter-forward 320ms cubic-bezier(.22,1,.36,1) both; }
 .step-enter-back { animation: step-enter-back 320ms cubic-bezier(.22,1,.36,1) both; }
 
+@keyframes draw-trend {
+  from { stroke-dashoffset: 600; }
+  to { stroke-dashoffset: 0; }
+}
+.trend-line {
+  stroke-dasharray: 600;
+  stroke-dashoffset: 600;
+  animation: draw-trend 600ms cubic-bezier(.22,1,.36,1) forwards;
+}
+
 /* Visible keyboard focus everywhere — never remove this for this audience. */
 :focus-visible {
   outline: 3px solid theme('colors.teal.DEFAULT');
