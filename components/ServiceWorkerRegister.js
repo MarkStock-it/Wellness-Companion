@@ -4,7 +4,8 @@ import { useEffect } from 'react';
 export default function ServiceWorkerRegister() {
   useEffect(() => {
     if (!('serviceWorker' in navigator) || process.env.NODE_ENV !== 'production') return;
-    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((error) => {
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+    navigator.serviceWorker.register(`${basePath}/sw.js`, { scope: `${basePath}/` }).catch((error) => {
       console.warn('Service worker registration failed:', error);
     });
   }, []);

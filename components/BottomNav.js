@@ -16,6 +16,7 @@ export default function BottomNav() {
   const holdTimer = useRef(null);
   const holdTriggered = useRef(false);
   const [holdingBlood, setHoldingBlood] = useState(false);
+  const [holdingMeal, setHoldingMeal] = useState(false);
   function startBloodHold(event) {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     holdTriggered.current = false;
@@ -37,11 +38,45 @@ export default function BottomNav() {
     window.clearTimeout(holdTimer.current);
     setHoldingBlood(false);
   }
+  function startMealHold(event) {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    holdTriggered.current = false;
+    setHoldingMeal(true);
+    holdTimer.current = window.setTimeout(() => {
+      holdTriggered.current = true;
+      setHoldingMeal(false);
+      localStorage.setItem('wc-meal-long-press-used', 'true');
+      if (navigator.vibrate) navigator.vibrate(35);
+      router.push('/meals/scanner');
+    }, 550);
+  }
+  function finishMealHold() {
+    window.clearTimeout(holdTimer.current);
+    setHoldingMeal(false);
+    if (!holdTriggered.current) router.push('/meals');
+  }
+  function cancelMealHold() {
+    window.clearTimeout(holdTimer.current);
+    setHoldingMeal(false);
+  }
   return (
     <nav aria-label="Main navigation" className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
       <ul className="mx-auto flex max-w-md px-2">
         {items.map(([href, label, icon]) => {
           const active = href === '/' ? pathname === '/' : pathname.startsWith(href);
+          if (href === '/meals') return (
+            <li key={href} className="flex-1">
+              <button type="button" aria-current={active ? 'page' : undefined} aria-label="Meals. Tap for meal log, hold for camera scanner"
+                onPointerDown={startMealHold} onPointerUp={finishMealHold} onPointerCancel={cancelMealHold}
+                onPointerLeave={event=>{if(event.pointerType==='mouse')cancelMealHold()}}
+                onContextMenu={event=>event.preventDefault()}
+                className={`relative flex min-h-[70px] w-full touch-none select-none flex-col items-center justify-center gap-1 text-center ${active ? 'text-teal-dark' : 'text-inkSoft'}`}>
+                {active && <span className="absolute top-0 h-1 w-8 rounded-b-full bg-teal" />}
+                <span className={`rounded-full p-1 transition duration-300 ${holdingMeal?'scale-110 bg-teal-light text-teal-dark':''}`}><Icon name={icon} size={23} strokeWidth={active ? 2.5 : 2} /></span>
+                <span className={`text-[12px] leading-none ${active ? 'font-bold' : 'font-medium'}`}>{holdingMeal?'Keep holding…':label}</span>
+              </button>
+            </li>
+          );
           if (href === '/blood-work') return (
             <li key={href} className="flex-1">
               <button type="button" aria-current={active ? 'page' : undefined} aria-label="Blood. Tap for trends, hold for scanner"

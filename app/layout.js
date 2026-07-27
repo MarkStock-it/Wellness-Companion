@@ -3,18 +3,18 @@ import BottomNav from '@/components/BottomNav';
 import PrototypeShell from '@/components/PrototypeShell';
 import ServiceWorkerRegister from '@/components/ServiceWorkerRegister';
 
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 export const metadata = {
   title: 'Wellness Companion',
   applicationName: 'Wellness Companion',
   description:
     'A simple daily companion for meals, blood work, activity, and symptoms — built for cancer patients and easy for older adults to use.',
-  manifest: '/manifest.webmanifest',
   icons: {
     icon: [
-      { url: '/icons/favicon-32.png', sizes: '32x32', type: 'image/png' },
-      { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: `${basePath}/icons/favicon-32.png`, sizes: '32x32', type: 'image/png' },
+      { url: `${basePath}/icons/icon-192.png`, sizes: '192x192', type: 'image/png' },
     ],
-    apple: [{ url: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+    apple: [{ url: `${basePath}/icons/apple-touch-icon.png`, sizes: '180x180', type: 'image/png' }],
   },
   appleWebApp: {
     capable: true,
@@ -36,6 +36,7 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
+      <head><link rel="manifest" href={`${basePath}/manifest.webmanifest`} /></head>
       <body>
         <ServiceWorkerRegister />
         {/* Single-column, mobile-first shell. Bottom padding reserves room
