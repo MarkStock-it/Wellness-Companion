@@ -1,28 +1,19 @@
 import { NextResponse } from 'next/server';
 import crypto from 'node:crypto';
+import { aiOutputBudget, optimizeAiPayload, wantsRecipeOutput } from '@/lib/aiEfficiency';
 
 export const runtime = 'nodejs';
 const MAX_BODY_CHARS = 12_000_000;
 
-const safety = `You are the Wellness Companion AI, an educational health-support assistant.
-Your purpose is to help the user think clearly about patterns in their own wellness data.
-Answer directly. Compare entries, identify changes over time, explain common meanings, surface
-uncertainties, and suggest useful questions or low-risk next steps. Do not begin or end with a
-generic disclaimer. Do not repeatedly say to ask a professional or that you cannot give medical
-advice. Mention professional care only when the user requests a diagnosis, treatment or medication
-decision, the supplied data is insufficient for a material conclusion, or the situation may be urgent.
-Use plain, calm language and short paragraphs. Do not diagnose, recommend changing medication,
-give treatment instructions, or claim visual/lab estimates are exact. Clearly label estimates and
-uncertainty. A lab value without its unit or printed reference range may still be described and
-compared over time, but do not label it normal or abnormal. If the user mentions emergency warning
-signs, advise immediate local emergency help. Keep normal answers under 180 words; structured
-recipe JSON may be longer when needed for complete ingredients and concise cooking steps.
-Return plain text unless the task explicitly requests a JSON response; in that case return only
-the requested JSON object. Do not use Markdown, asterisks, headings, backticks, numbered lists,
-bullet symbols, tables, or decorative formatting outside JSON. Use short sentences instead.
-The request includes a section labeled local profile and wellness log context. Treat that supplied
-context as data the user has explicitly shared with you for this response. When bloodWork contains
-entries, summarize those entries directly and do not claim you cannot access them.`;
+const safety = `You are Wellness Companion, an educational health-support assistant. Answer directly
+in calm, plain language. Use supplied wellness data to compare patterns, explain uncertainty, and
+suggest low-risk next steps. Do not diagnose, prescribe, recommend medication changes, or present
+visual/lab estimates as exact. Do not label a lab value normal or abnormal without its unit and
+printed range. Mention professional care only for diagnosis, treatment, medication decisions,
+materially insufficient data, or urgency. For emergency warning signs, advise immediate local
+emergency help. Keep normal answers under 180 words. Return plain text without Markdown unless the
+task requests JSON; then return only that JSON object. Treat supplied local context as user-provided
+data and use available bloodWork directly.`;
 
 function outputText(data) {
   return (data.output || []).flatMap((item) => item.content || [])
@@ -89,16 +80,16 @@ function providerSettings(provider) {
   return {};
 }
 
-async function callOpenAI({ key, model, prompt, image, identifier }) {
+async function callOpenAI({ key, model, prompt, image, identifier, maxTokens, mode }) {
   const content = [{ type: 'input_text', text: prompt }];
-  if (image) content.push({ type: 'input_image', image_url: image, detail: 'high' });
+  if (image) content.push({ type: 'input_image', image_url: image, detail: mode==='meal'?'low':'high' });
   const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model, store: false, safety_identifier: identifier,
-      reasoning: { effort: 'low' }, text: { verbosity: 'low' },
-      max_output_tokens: 1600,
+      reasoning: { effort: 'minimal' }, text: { verbosity: 'low' },
+      max_output_tokens: maxTokens, prompt_cache_key:`wellness-${mode}`,
       instructions: safety, input: [{ role: 'user', content }],
     }),
   });
@@ -106,7 +97,7 @@ async function callOpenAI({ key, model, prompt, image, identifier }) {
   return { response, data, text: response.ok ? outputText(data) : '', truncated: data.status === 'incomplete' };
 }
 
-async function callGemini({ key, model, prompt, image, grounded=false }) {
+async function callGemini({ key, model, prompt, image, maxTokens }) {
   const parts = [{ text: prompt }];
   if (image) {
     const match = image.match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/s);
@@ -118,9 +109,8 @@ async function callGemini({ key, model, prompt, image, grounded=false }) {
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: safety }] },
       contents: [{ role: 'user', parts }],
-      ...(grounded?{tools:[{google_search:{}}]}:{}),
       generationConfig: {
-        maxOutputTokens: 4096,
+        maxOutputTokens: maxTokens,
         thinkingConfig: { thinkingLevel: 'minimal' },
       },
     }),
@@ -136,13 +126,13 @@ async function callGemini({ key, model, prompt, image, grounded=false }) {
   };
 }
 
-async function callDeepSeek({ key, model, prompt, identifier }) {
+async function callDeepSeek({ key, model, prompt, identifier, maxTokens }) {
   const response = await fetch('https://api.deepseek.com/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model, messages: [{ role: 'system', content: safety }, { role: 'user', content: prompt }],
-      thinking: { type: 'disabled' }, max_tokens: 1400, user_id: identifier,
+      thinking: { type: 'disabled' }, max_tokens: maxTokens, user_id: identifier,
     }),
   });
   const data = await response.json();
@@ -155,8 +145,10 @@ export async function POST(request) {
   try {
     const raw = await request.text();
     if (raw.length > MAX_BODY_CHARS) return NextResponse.json({ error: 'The uploaded image is too large. Choose an image under 8 MB.' }, { status: 413 });
-    const body = JSON.parse(raw);
-    const { mode, profile = {}, context = {}, messages = [], image, documentText = '', ocrScans = [], recipe = {}, query = '', aiConfig = {} } = body;
+    const requestBody = JSON.parse(raw);
+    const aiConfig=requestBody.aiConfig||{};
+    const body=optimizeAiPayload(requestBody);
+    const { mode, profile = {}, context = {}, messages = [], image, documentText = '', ocrScans = [], recipe = {}, query = '' } = body;
     if (!['chat', 'meal', 'lab', 'lab-text', 'lab-consensus', 'summary','recipe-intent','recipe-analysis'].includes(mode)) return NextResponse.json({ error: 'Invalid AI request.' }, { status: 400 });
     if (image && !/^data:image\/(jpeg|png|webp);base64,/.test(image)) return NextResponse.json({ error: 'Please use a JPEG, PNG, or WebP image.' }, { status: 400 });
     const defaultProvider = String(aiConfig.provider || process.env.AI_PROVIDER || 'openai').toLowerCase();
@@ -168,19 +160,26 @@ export async function POST(request) {
     settings.key = String(browserKey || settings.key || '').trim();
     if (settings.key.length < 10) return NextResponse.json({ error: `Enter a valid ${provider[0].toUpperCase()+provider.slice(1)} API key in the AI setup.` }, { status: 503 });
 
-    const background = `Local profile and wellness log context supplied by the user:
-${JSON.stringify({ profile, context }).slice(0, 24000)}`;
+    const supplied={};if(Object.keys(profile).length)supplied.profile=profile;if(Object.keys(context).length)supplied.context=context;
+    const background = Object.keys(supplied).length?`User-supplied local context:\n${JSON.stringify(supplied)}`:'';
     let prompt = '';
-    if (mode === 'chat') prompt = `Answer the latest question using relevant supplied context. Return valid JSON only in this shape: {"reply":"plain-language response","activities":[{"title":"short activity","duration":"duration or simple instruction"}],"recipeIdeas":[{"title":"recipe title","overview":"short description","ingredients":[{"name":"ingredient","measure":"amount"}],"instructions":["concise step"],"prepTime":"estimate","cookTime":"estimate","totalTime":"estimate","servings":"number","calories":"clearly labeled estimate or unavailable","protein":"clearly labeled estimate or unavailable","difficulty":"Easy, Moderate, or Advanced","tags":["short tags"]}]}. Include activities only for actionable wellness plans. Include one or two recipeIdeas when the user asks you to create, recommend, or plan a food or recipe. Respect requested nutrition targets but label nutrition as approximate, use realistic portions, and keep each recipe to at most 15 ingredients and 10 concise steps. Do not claim anything was saved and do not ask for confirmation because the app provides confirmation controls. Use empty arrays when neither applies. Conversation:\n${messages.slice(-8).map(m => `${m.role}: ${m.text}`).join('\n')}`;
+    if (mode === 'chat'){
+      const wantsRecipe=wantsRecipeOutput(body);
+      prompt=wantsRecipe?`Answer the latest message. Return JSON only:
+{"reply":"plain response","activities":[],"recipeIdeas":[{"title":"title","overview":"description","ingredients":[{"name":"ingredient","measure":"amount"}],"instructions":["step"],"prepTime":"estimate","cookTime":"estimate","totalTime":"estimate","servings":"number","calories":"estimate or unavailable","protein":"estimate or unavailable","difficulty":"Easy, Moderate, or Advanced","tags":["tag"]}]}
+Provide 1–2 requested recipes with realistic portions, labeled estimates, at most 15 ingredients and 10 steps. Never claim they were saved or ask for confirmation.
+Conversation:\n${messages.map(m => `${m.role}: ${m.text}`).join('\n')}`:`Answer the latest message. Return JSON only: {"reply":"plain response","activities":[{"title":"activity","duration":"duration"}],"recipeIdeas":[]}. Include activities only for an actionable plan. Conversation:\n${messages.map(m => `${m.role}: ${m.text}`).join('\n')}`;
+    }
     if (mode === 'summary') prompt = 'Give a brief weekly wellness pattern summary with 2 observations and one gentle next step. Do not diagnose.';
     if (mode === 'meal') prompt = 'Analyze this meal photo. Return only: an estimated calorie range, estimated protein range in grams, and 1–2 short nutrition notes relevant to the profile. Mention that photo estimates can be inaccurate.';
     if (mode === 'lab') prompt = 'Extract every clearly readable lab test name, value, unit, and printed reference range from this report. Then explain the overall result in plain language. Mark unreadable or uncertain text. Do not infer missing values or diagnose.';
     if (mode === 'lab-text') prompt = `The report image was processed by local OCR. Analyze only the extracted text. Return valid JSON only with this exact shape: {"reportDate":"YYYY-MM-DD or null","summary":"brief plain-language explanation","labs":[{"name":"test name","value":"printed value","unit":"printed unit or empty string","range":"printed reference range or empty string"}]}. Include only values clearly present in the OCR text. Never infer, correct, calculate, or invent a value. If no reliable values exist, return an empty labs array. Keep summary under 140 words and mention OCR uncertainty.\n\nLocally extracted report text:\n${String(documentText).slice(0,24000)}`;
-    if (mode === 'lab-consensus') prompt = `The same lab report was photographed and OCR-scanned locally three times. Compare the three OCR texts. Return valid JSON only with this exact shape: {"reportDate":"YYYY-MM-DD or null","summary":"brief plain-language consensus explanation that flags disagreements","labs":[{"name":"test name","value":"printed value","unit":"printed unit or empty string","range":"printed reference range or empty string"}]}. Save a lab only when at least two scans support the same test name and numeric value. For units, recognize only conservative visual OCR equivalents in standard lab-unit patterns, such as g|L or g\\L meaning g/L, mg|dL meaning mg/dL, and 10x9/L meaning 10^9/L. A tilde, inequality sign, decimal separator, plus/minus sign, or other ambiguous symbol must agree in at least two scans; never guess it. Do not average values or choose a closest number when scans conflict. Never infer, correct, calculate, or invent information. Put uncertain or conflicting readings only in the summary, not in labs. Keep the summary under 160 words.\n\n${ocrScans.slice(0,3).map((text,index)=>`OCR SCAN ${index+1}:\n${String(text).slice(0,8000)}`).join('\n\n')}`;
+    if (mode === 'lab-consensus') prompt = `Compare three OCR readings of one lab report. Return JSON only: {"reportDate":"YYYY-MM-DD or null","summary":"brief consensus and disagreements","labs":[{"name":"test","value":"printed value","unit":"printed unit or empty","range":"printed range or empty"}]}. Include a lab only when 2+ scans agree on its name and numeric value. Ambiguous signs and decimals must also agree. Normalize obvious unit separators (g|L to g/L, mg|dL to mg/dL, 10x9/L to 10^9/L). Never average, infer, correct, calculate, or guess; mention conflicts only in the summary (under 120 words).\n\n${ocrScans.map((text,index)=>`OCR ${index+1}:\n${text}`).join('\n\n')}`;
     if(mode==='recipe-intent')prompt=`Interpret this natural-language recipe search. Return JSON only: {"terms":["up to four short recipe names or primary ingredients likely to produce results"],"tags":["up to four dietary or practical intent labels"]}. Remove words such as recipe, meal, easy, and dinner from terms unless essential. Search: ${String(query).slice(0,300)}`;
-    if(mode==='recipe-analysis')prompt=`Analyze the normalized recipe below. Use Google Search when available to check a few reputable cooking references for technique, common variations, nutrition context, and preparation tips. Do not copy prose from sources and do not invent exact nutrition values. Return JSON only: {"overview":"what the meal is","nutrition":"brief nutrition explanation","suitableFor":"who may find it suitable, with sensible caveats","difficulty":"Easy, Moderate, or Advanced","flavor":"short flavor profile","tips":["helpful tips"],"substitutions":["practical substitutions"],"storage":"storage guidance when reasonably supported","tags":["short nutrition or practical tags"]}. Recipe: ${JSON.stringify(recipe).slice(0,24000)}`;
-    const identifier = crypto.createHash('sha256').update(String(profile.localId || 'anonymous')).digest('hex').slice(0, 64);
-    const args = { ...settings, prompt: `${background}\n\nTask:\n${prompt}`, image, identifier,grounded:mode==='recipe-analysis' };
+    if(mode==='recipe-analysis')prompt=`Analyze this recipe without inventing exact nutrition. Return JSON only: {"overview":"what it is","nutrition":"brief context","suitableFor":"who it may suit with caveats","difficulty":"Easy, Moderate, or Advanced","flavor":"profile","tips":["up to 3"],"substitutions":["up to 3"],"storage":"guidance","tags":["up to 5"]}. Recipe: ${JSON.stringify(recipe)}`;
+    const identifier = crypto.createHash('sha256').update(String(requestBody.profile?.localId || 'anonymous')).digest('hex').slice(0, 64);
+    const maxTokens=aiOutputBudget(body);
+    const args = { ...settings, prompt: `${background}${background?'\n\n':''}${prompt}`, image, identifier,maxTokens,mode };
     const result = provider === 'openai' ? await callOpenAI(args) : provider === 'gemini' ? await callGemini(args) : await callDeepSeek(args);
     if (!result.response.ok) {
       console.error(`${provider} request failed`, result.response.status, result.data?.error?.code || result.data?.error?.status);

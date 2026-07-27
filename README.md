@@ -87,3 +87,16 @@ Tesseract OCR worker. Only the extracted text is submitted to the AI provider,
 reducing multimodal token usage and keeping the report image on-device. The
 first scan may download OCR runtime/language assets. Low-text scans stop before
 an AI call, and extracted text is shown for user verification.
+
+## AI cost controls
+
+- Meal Ideas search is deterministic and uses no AI tokens.
+- Opening a recipe never starts AI analysis automatically.
+- Requests remove identity fields and context unrelated to the selected mode.
+- Chat sends at most six compact messages; summaries use at most eight recent
+  blood-work records; OCR scans are cleaned and capped before submission.
+- Output limits are task-specific instead of using one large global allowance.
+- Meal photos are resized before upload and use low-detail OpenAI vision.
+- Identical summaries, meal scans, lab consensus scans, and recipe analyses are
+  reused from a short-lived session cache.
+- Recipe analysis does not invoke a paid web-grounding tool.
