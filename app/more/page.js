@@ -1,35 +1,15 @@
 import Link from 'next/link';
 import PageHeader from '@/components/PageHeader';
 import Card from '@/components/Card';
-
-const MORE_ITEMS = [
-  { href: '/meal-ideas', title: 'Meal Ideas', detail: 'Simple meal suggestions', icon: '🍲' },
-  { href: '/symptoms', title: 'Daily Check-in', detail: 'Appetite, nausea, fatigue, mood', icon: '📝' },
-  { href: '/ai-summary', title: 'AI Health Summary', detail: 'A plain-language overview', icon: '✨' },
-  { href: '/resources', title: 'Resources', detail: 'Talk to a professional', icon: '📞' },
+import Icon from '@/components/Icon';
+const items=[
+  ['/meal-ideas','Meal ideas','Simple, nourishing suggestions','bowl','bg-gold-light text-gold'],
+  ['/symptoms','Daily check-in','Appetite, nausea, fatigue and mood','clipboard','bg-teal-light text-teal-dark'],
+  ['/ai-summary','Health summary','A plain-language weekly overview','sparkle','bg-[#EEE8F5] text-[#6B4D88]'],
+  ['/resources','Support resources','Guidance and professional support','phone','bg-clay-light text-clay'],
 ];
-
-export default function MorePage() {
-  return (
-    <div className="px-5 pt-8">
-      <PageHeader title="More" />
-
-      <div className="mt-6 flex flex-col gap-4">
-        {MORE_ITEMS.map((item) => (
-          <Link key={item.href} href={item.href} className="block">
-            <Card className="flex items-center gap-4 active:opacity-80">
-              <span aria-hidden="true" className="text-3xl">{item.icon}</span>
-              <span className="flex-1">
-                <span className="block text-lg font-bold text-ink">{item.title}</span>
-                <span className="block text-base text-inkSoft">{item.detail}</span>
-              </span>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-inkSoft shrink-0">
-                <path d="M9 5l7 7-7 7" />
-              </svg>
-            </Card>
-          </Link>
-        ))}
-      </div>
-    </div>
-  );
-}
+export default function MorePage(){return <div className="px-5 pb-5"><PageHeader title="More"/>
+  <p className="mt-3 text-base text-inkSoft">Tools and support for your care journey.</p>
+  <div className="mt-5 space-y-3">{items.map(([href,title,detail,icon,tone])=><Link key={href} href={href} className="block"><Card className="flex items-center gap-4 p-4 transition hover:-translate-y-0.5"><span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${tone}`}><Icon name={icon}/></span><span className="flex-1"><strong className="block">{title}</strong><span className="block text-sm text-inkSoft">{detail}</span></span><Icon name="chevron" className="text-inkSoft"/></Card></Link>)}</div>
+  <p className="mt-7 text-center text-xs font-medium uppercase tracking-widest text-inkSoft">Wellness Companion · Version 1.0</p>
+  </div>}

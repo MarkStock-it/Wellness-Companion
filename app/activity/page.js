@@ -1,67 +1,25 @@
 'use client';
-
-import { useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import Card from '@/components/Card';
 import BigButton from '@/components/BigButton';
-
-// TODO: connect to real daily-activity plan data source.
-const TODAYS_ACTIVITY = {
-  title: 'Gentle Stretching',
-  duration: '10 min',
-};
-
-const ENERGY_OPTIONS = ['Low', 'Okay', 'Good'];
+import Icon from '@/components/Icon';
+import useStoredState from '@/components/useStoredState';
 
 export default function ActivityPage() {
-  // Local UI state only — nothing is saved or sent anywhere.
-  // TODO: connect to real energy-log data source.
-  const [done, setDone] = useState(false);
-  const [energy, setEnergy] = useState(null);
-
-  return (
-    <div className="px-5 pt-8">
-      <PageHeader title="Activity" backHref="/" />
-
-      <Card className="mt-6">
-        <p className="text-base font-bold uppercase tracking-wide text-teal-dark">Today</p>
-        <h2 className="mt-1 font-display text-2xl font-bold text-ink">
-          {TODAYS_ACTIVITY.title} — {TODAYS_ACTIVITY.duration}
-        </h2>
-        <p className="mt-2 text-lg text-inkSoft">
-          A slow, seated or standing stretch. Stop any time it feels like too much.
-        </p>
-
-        <div className="mt-5">
-          <BigButton
-            variant={done ? 'secondary' : 'primary'}
-            onClick={() => setDone((d) => !d)}
-          >
-            {done ? '✓ Marked as Done' : 'Mark as Done'}
-          </BigButton>
-        </div>
-      </Card>
-
-      <Card className="mt-4">
-        <h2 className="text-xl font-bold text-ink">How's your energy right now?</h2>
-        <div className="mt-4 flex gap-3">
-          {ENERGY_OPTIONS.map((option) => {
-            const selected = energy === option;
-            return (
-              <button
-                key={option}
-                type="button"
-                onClick={() => setEnergy(option)}
-                aria-pressed={selected}
-                className={`min-h-touch flex-1 rounded-card border-2 text-lg font-bold
-                  ${selected ? 'border-teal bg-teal text-white' : 'border-line bg-surface text-ink'}`}
-              >
-                {option}
-              </button>
-            );
-          })}
-        </div>
-      </Card>
-    </div>
-  );
+  const [data, setData] = useStoredState('wc-activity', {});
+  return <div className="px-5 pb-5"><PageHeader title="Activity" backHref="/" />
+    <Card className="mt-4 overflow-hidden border-0 bg-teal p-6 text-white">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15"><Icon name="activity" size={28}/></div>
+      <p className="mt-5 text-sm font-bold uppercase tracking-widest text-teal-light">Today&apos;s movement</p>
+      <h2 className="mt-1 font-display text-2xl font-bold">Gentle stretching</h2>
+      <p className="mt-2 text-base text-white/80">10 minutes · Seated or standing</p>
+      <div className="mt-5"><BigButton variant={data.done ? 'secondary' : 'outline'} onClick={() => setData({...data, done: !data.done})}>{data.done ? <><Icon name="check"/> Completed today</> : 'Mark as complete'}</BigButton></div>
+    </Card>
+    <Card className="mt-4">
+      <h2 className="font-display text-xl font-bold">How is your energy?</h2><p className="mt-1 text-sm text-inkSoft">Choose the answer that feels closest.</p>
+      <div className="mt-4 grid grid-cols-3 gap-2">{['Low','Okay','Good'].map((option, i) => <button key={option} onClick={() => setData({...data, energy: option})} aria-pressed={data.energy === option} className={`min-h-[76px] rounded-2xl border p-2 text-sm font-bold ${data.energy === option ? 'border-teal bg-teal text-white' : 'border-line bg-canvas'}`}><span className="mx-auto mb-2 block h-1.5 rounded-full bg-current" style={{width: `${20+i*10}px`}}/>{option}</button>)}</div>
+      {data.energy && <p className="mt-4 flex items-center gap-2 rounded-xl bg-teal-light p-3 text-sm font-medium text-teal-dark"><Icon name="check" size={18}/> Energy saved for today</p>}
+    </Card>
+    <Card className="mt-4 flex gap-3 bg-gold-light/60"><Icon name="info" className="shrink-0 text-gold"/><p className="text-sm leading-relaxed text-inkSoft">Move gently and stop if you feel pain, dizziness, or shortness of breath.</p></Card>
+  </div>;
 }

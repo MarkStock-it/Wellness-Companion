@@ -10,7 +10,14 @@ html {
 body {
   @apply bg-canvas text-ink font-body;
   min-height: 100vh;
+  background-image: radial-gradient(circle at 100% 0%, rgba(220,238,238,.9), transparent 32rem);
+  -webkit-font-smoothing: antialiased;
 }
+button, a, input, textarea, select { -webkit-tap-highlight-color: transparent; }
+.icon-button { @apply flex min-h-touch min-w-touch items-center justify-center rounded-full transition hover:bg-teal-light; }
+.field { @apply min-h-touch w-full rounded-2xl border border-line bg-canvas px-4 py-3 text-base text-ink outline-none focus:border-teal; }
+.label { @apply mb-2 block text-sm font-bold uppercase tracking-wider text-inkSoft; }
+.eyebrow { @apply text-sm font-bold uppercase tracking-[.14em] text-teal-dark; }
 
 /* Visible keyboard focus everywhere — never remove this for this audience. */
 :focus-visible {

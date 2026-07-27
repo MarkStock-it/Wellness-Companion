@@ -1,18 +1,17 @@
 import Link from 'next/link';
+import Icon from './Icon';
 
 export default function PageHeader({ title, backHref }) {
   return (
-    <header className="sticky top-0 z-20 bg-canvas/95 backdrop-blur-sm border-b-2 border-line px-5 pt-6 pb-4">
+    <header className="sticky top-0 z-20 -mx-5 bg-canvas/90 px-5 pb-4 pt-5 backdrop-blur-xl">
       <div className="mx-auto flex max-w-md items-center gap-3">
         {backHref ? (
           <Link
             href={backHref}
             aria-label="Go back"
-            className="flex min-h-touch min-w-touch items-center justify-center rounded-card text-teal-dark"
+            className="icon-button -ml-2 text-teal-dark"
           >
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 5l-7 7 7 7" />
-            </svg>
+            <Icon name="back" size={26} strokeWidth={2.5} />
           </Link>
         ) : null}
         <h1 className="font-display text-2xl font-bold text-ink">{title}</h1>

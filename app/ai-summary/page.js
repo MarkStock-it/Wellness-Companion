@@ -4,8 +4,9 @@ import { useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import Card from '@/components/Card';
 import BigButton from '@/components/BigButton';
+import Icon from '@/components/Icon';
 
-// Dummy summary text only — TODO: connect to real AI summary API.
+// Prototype summary copy. A production release should connect this to a guarded server API.
 // TODO (implementation phase, open decisions):
 //  - Which data sources feed the summary (meals, blood work, activity, symptoms)
 //  - Where the API key / model call is handled (server route, not client)
@@ -24,11 +25,13 @@ export default function AiSummaryPage() {
   }
 
   return (
-    <div className="px-5 pt-8">
+    <div className="px-5 pb-5">
       <PageHeader title="AI Health Summary" backHref="/more" />
 
-      <Card className="mt-6">
-        <h2 className="text-xl font-bold text-ink">Your summary</h2>
+      <Card className="mt-4 border-0 bg-gradient-to-br from-teal to-teal-dark text-white">
+        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15"><Icon name="sparkle"/></span>
+        <p className="mt-4 text-sm font-bold uppercase tracking-widest text-teal-light">Weekly overview</p>
+        <h2 className="mt-1 font-display text-2xl font-bold">Your summary</h2>
 
         {loading ? (
           <div className="mt-4 flex flex-col items-center gap-3 py-8 text-center">
@@ -36,16 +39,14 @@ export default function AiSummaryPage() {
               aria-hidden="true"
               className="spinner h-10 w-10 rounded-full border-4 border-teal-light border-t-teal"
             />
-            <p className="text-lg text-inkSoft">Analyzing your data...</p>
+            <p className="text-base text-white/80">Reviewing your entries...</p>
           </div>
         ) : (
-          <p className="mt-3 text-lg leading-relaxed text-ink">{DUMMY_SUMMARY}</p>
+          <p className="mt-3 text-base leading-relaxed text-white/90">{DUMMY_SUMMARY}</p>
         )}
 
-        <p className="mt-5 text-base italic text-inkSoft">
-          This is not medical advice. Always confirm with your doctor or dietitian.
-        </p>
       </Card>
+      <p className="mt-4 flex gap-2 rounded-2xl bg-gold-light p-4 text-sm leading-relaxed text-inkSoft"><Icon name="info" className="shrink-0 text-gold"/>This overview is educational, not medical advice. Confirm health decisions with your care team.</p>
 
       <div className="mt-6">
         <BigButton onClick={handleRefresh}>
