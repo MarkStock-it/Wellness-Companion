@@ -5,11 +5,15 @@ export default function useStoredState(key, fallback) {
   const [value, setValue] = useState(fallback);
   const [ready, setReady] = useState(false);
   useEffect(() => {
-    try {
+    function load() { try {
       const stored = window.localStorage.getItem(key);
       if (stored) setValue(JSON.parse(stored));
-    } catch {}
+    } catch {} }
+    load();
+    const refresh = event => { if (!event.detail?.key || event.detail.key === key) load(); };
+    window.addEventListener('wc-storage-updated', refresh);
     setReady(true);
+    return () => window.removeEventListener('wc-storage-updated', refresh);
   }, [key]);
   useEffect(() => {
     if (!ready) return;

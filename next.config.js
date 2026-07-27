@@ -13,6 +13,7 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_BASE_PATH: basePath,
     NEXT_PUBLIC_STATIC_EXPORT: isGitHubPages ? 'true' : 'false',
+    NEXT_PUBLIC_MEALDB_KEY: process.env.NEXT_PUBLIC_MEALDB_KEY || '1',
   },
 };
 

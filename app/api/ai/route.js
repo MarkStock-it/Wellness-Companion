@@ -15,9 +15,11 @@ Use plain, calm language and short paragraphs. Do not diagnose, recommend changi
 give treatment instructions, or claim visual/lab estimates are exact. Clearly label estimates and
 uncertainty. A lab value without its unit or printed reference range may still be described and
 compared over time, but do not label it normal or abnormal. If the user mentions emergency warning
-signs, advise immediate local emergency help. Keep answers under 180 words.
-Return plain text only. Do not use Markdown, asterisks, headings, backticks, numbered lists,
-bullet symbols, tables, or decorative formatting. Use short sentences and blank lines instead.
+signs, advise immediate local emergency help. Keep normal answers under 180 words; structured
+recipe JSON may be longer when needed for complete ingredients and concise cooking steps.
+Return plain text unless the task explicitly requests a JSON response; in that case return only
+the requested JSON object. Do not use Markdown, asterisks, headings, backticks, numbered lists,
+bullet symbols, tables, or decorative formatting outside JSON. Use short sentences instead.
 The request includes a section labeled local profile and wellness log context. Treat that supplied
 context as data the user has explicitly shared with you for this response. When bloodWork contains
 entries, summarize those entries directly and do not claim you cannot access them.`;
@@ -59,6 +61,27 @@ function parseLabResult(value) {
   }
 }
 
+function parseChatResult(value) {
+  try {
+    const cleaned=String(value).replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/i,'').trim();
+    const start=cleaned.indexOf('{'),end=cleaned.lastIndexOf('}');
+    const parsed=JSON.parse(cleaned.slice(start,end+1));
+    const activities=Array.isArray(parsed.activities)?parsed.activities.slice(0,5).map(item=>({
+      title:String(item.title||'').trim().slice(0,100),
+      duration:String(item.duration||'').trim().slice(0,80),
+    })).filter(item=>item.title&&item.duration):[];
+    const recipeIdeas=Array.isArray(parsed.recipeIdeas)?parsed.recipeIdeas.slice(0,2).map((recipe,index)=>({
+      id:`ai-recipe-${Date.now().toString(36)}-${index}`,title:String(recipe.title||'').trim().slice(0,120),image:'',category:'AI recipe',area:'',overview:plainText(recipe.overview),ingredients:Array.isArray(recipe.ingredients)?recipe.ingredients.slice(0,15).map(item=>({name:String(item.name||'').trim().slice(0,80),measure:String(item.measure||'').trim().slice(0,50)})).filter(item=>item.name):[],instructions:Array.isArray(recipe.instructions)?recipe.instructions.slice(0,10).map(plainText).filter(Boolean):[],prepTime:String(recipe.prepTime||'').slice(0,40),cookTime:String(recipe.cookTime||'').slice(0,40),totalTime:String(recipe.totalTime||'').slice(0,40),servings:String(recipe.servings||'').slice(0,30),calories:String(recipe.calories||'').slice(0,40),protein:String(recipe.protein||'').slice(0,40),difficulty:String(recipe.difficulty||'Moderate').slice(0,30),tags:Array.isArray(recipe.tags)?recipe.tags.slice(0,5).map(tag=>String(tag).trim().slice(0,30)).filter(Boolean):[],sourceUrl:'',generatedByAi:true,
+    })).filter(recipe=>recipe.title&&recipe.ingredients.length&&recipe.instructions.length):[];
+    return {text:plainText(parsed.reply),activities,recipeIdeas};
+  } catch {
+    return {text:plainText(value),activities:[],recipeIdeas:[]};
+  }
+}
+function parseJsonObject(value){try{const cleaned=String(value).replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/i,'').trim();return JSON.parse(cleaned.slice(cleaned.indexOf('{'),cleaned.lastIndexOf('}')+1))}catch{return null}}
+function parseRecipeIntent(value){const parsed=parseJsonObject(value);return{terms:Array.isArray(parsed?.terms)?parsed.terms.slice(0,4).map(term=>String(term).trim().slice(0,50)).filter(Boolean):[],tags:Array.isArray(parsed?.tags)?parsed.tags.slice(0,4).map(tag=>String(tag).trim().slice(0,30)).filter(Boolean):[]}}
+function parseRecipeAnalysis(value){const parsed=parseJsonObject(value);if(!parsed)return null;return{overview:plainText(parsed.overview),difficulty:String(parsed.difficulty||'Moderate').slice(0,30),flavor:plainText(parsed.flavor),nutrition:plainText(parsed.nutrition),suitableFor:plainText(parsed.suitableFor),tips:Array.isArray(parsed.tips)?parsed.tips.slice(0,5).map(plainText).filter(Boolean):[],substitutions:Array.isArray(parsed.substitutions)?parsed.substitutions.slice(0,5).map(plainText).filter(Boolean):[],storage:plainText(parsed.storage),tags:Array.isArray(parsed.tags)?parsed.tags.slice(0,5).map(tag=>String(tag).trim().slice(0,30)).filter(Boolean):[]}}
+
 function providerSettings(provider) {
   if (provider === 'openai') return { key: process.env.OPENAI_API_KEY, model: process.env.OPENAI_MODEL || 'gpt-5.6-terra' };
   if (provider === 'gemini') return { key: process.env.GEMINI_API_KEY, model: process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite' };
@@ -83,7 +106,7 @@ async function callOpenAI({ key, model, prompt, image, identifier }) {
   return { response, data, text: response.ok ? outputText(data) : '', truncated: data.status === 'incomplete' };
 }
 
-async function callGemini({ key, model, prompt, image }) {
+async function callGemini({ key, model, prompt, image, grounded=false }) {
   const parts = [{ text: prompt }];
   if (image) {
     const match = image.match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/s);
@@ -95,6 +118,7 @@ async function callGemini({ key, model, prompt, image }) {
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: safety }] },
       contents: [{ role: 'user', parts }],
+      ...(grounded?{tools:[{google_search:{}}]}:{}),
       generationConfig: {
         maxOutputTokens: 4096,
         thinkingConfig: { thinkingLevel: 'minimal' },
@@ -105,6 +129,7 @@ async function callGemini({ key, model, prompt, image }) {
   const text = response.ok ? (data.candidates?.[0]?.content?.parts || []).map(part => part.text || '').join('\n').trim() : '';
   return {
     response, data, text,
+    sources:(data.candidates?.[0]?.groundingMetadata?.groundingChunks||[]).map(chunk=>chunk.web).filter(Boolean).slice(0,6),
     truncated: data.candidates?.[0]?.finishReason === 'MAX_TOKENS',
     finishReason: data.candidates?.[0]?.finishReason || data.promptFeedback?.blockReason,
     finishMessage: data.candidates?.[0]?.finishMessage || data.promptFeedback?.blockReasonMessage,
@@ -131,8 +156,8 @@ export async function POST(request) {
     const raw = await request.text();
     if (raw.length > MAX_BODY_CHARS) return NextResponse.json({ error: 'The uploaded image is too large. Choose an image under 8 MB.' }, { status: 413 });
     const body = JSON.parse(raw);
-    const { mode, profile = {}, context = {}, messages = [], image, documentText = '', ocrScans = [], aiConfig = {} } = body;
-    if (!['chat', 'meal', 'lab', 'lab-text', 'lab-consensus', 'summary'].includes(mode)) return NextResponse.json({ error: 'Invalid AI request.' }, { status: 400 });
+    const { mode, profile = {}, context = {}, messages = [], image, documentText = '', ocrScans = [], recipe = {}, query = '', aiConfig = {} } = body;
+    if (!['chat', 'meal', 'lab', 'lab-text', 'lab-consensus', 'summary','recipe-intent','recipe-analysis'].includes(mode)) return NextResponse.json({ error: 'Invalid AI request.' }, { status: 400 });
     if (image && !/^data:image\/(jpeg|png|webp);base64,/.test(image)) return NextResponse.json({ error: 'Please use a JPEG, PNG, or WebP image.' }, { status: 400 });
     const defaultProvider = String(aiConfig.provider || process.env.AI_PROVIDER || 'openai').toLowerCase();
     const provider = image ? String(aiConfig.visionProvider || process.env.AI_VISION_PROVIDER || defaultProvider).toLowerCase() : defaultProvider;
@@ -146,14 +171,16 @@ export async function POST(request) {
     const background = `Local profile and wellness log context supplied by the user:
 ${JSON.stringify({ profile, context }).slice(0, 24000)}`;
     let prompt = '';
-    if (mode === 'chat') prompt = `Answer the latest question using relevant supplied context. Conversation:\n${messages.slice(-8).map(m => `${m.role}: ${m.text}`).join('\n')}`;
+    if (mode === 'chat') prompt = `Answer the latest question using relevant supplied context. Return valid JSON only in this shape: {"reply":"plain-language response","activities":[{"title":"short activity","duration":"duration or simple instruction"}],"recipeIdeas":[{"title":"recipe title","overview":"short description","ingredients":[{"name":"ingredient","measure":"amount"}],"instructions":["concise step"],"prepTime":"estimate","cookTime":"estimate","totalTime":"estimate","servings":"number","calories":"clearly labeled estimate or unavailable","protein":"clearly labeled estimate or unavailable","difficulty":"Easy, Moderate, or Advanced","tags":["short tags"]}]}. Include activities only for actionable wellness plans. Include one or two recipeIdeas when the user asks you to create, recommend, or plan a food or recipe. Respect requested nutrition targets but label nutrition as approximate, use realistic portions, and keep each recipe to at most 15 ingredients and 10 concise steps. Do not claim anything was saved and do not ask for confirmation because the app provides confirmation controls. Use empty arrays when neither applies. Conversation:\n${messages.slice(-8).map(m => `${m.role}: ${m.text}`).join('\n')}`;
     if (mode === 'summary') prompt = 'Give a brief weekly wellness pattern summary with 2 observations and one gentle next step. Do not diagnose.';
     if (mode === 'meal') prompt = 'Analyze this meal photo. Return only: an estimated calorie range, estimated protein range in grams, and 1–2 short nutrition notes relevant to the profile. Mention that photo estimates can be inaccurate.';
     if (mode === 'lab') prompt = 'Extract every clearly readable lab test name, value, unit, and printed reference range from this report. Then explain the overall result in plain language. Mark unreadable or uncertain text. Do not infer missing values or diagnose.';
     if (mode === 'lab-text') prompt = `The report image was processed by local OCR. Analyze only the extracted text. Return valid JSON only with this exact shape: {"reportDate":"YYYY-MM-DD or null","summary":"brief plain-language explanation","labs":[{"name":"test name","value":"printed value","unit":"printed unit or empty string","range":"printed reference range or empty string"}]}. Include only values clearly present in the OCR text. Never infer, correct, calculate, or invent a value. If no reliable values exist, return an empty labs array. Keep summary under 140 words and mention OCR uncertainty.\n\nLocally extracted report text:\n${String(documentText).slice(0,24000)}`;
     if (mode === 'lab-consensus') prompt = `The same lab report was photographed and OCR-scanned locally three times. Compare the three OCR texts. Return valid JSON only with this exact shape: {"reportDate":"YYYY-MM-DD or null","summary":"brief plain-language consensus explanation that flags disagreements","labs":[{"name":"test name","value":"printed value","unit":"printed unit or empty string","range":"printed reference range or empty string"}]}. Save a lab only when at least two scans support the same test name and numeric value. For units, recognize only conservative visual OCR equivalents in standard lab-unit patterns, such as g|L or g\\L meaning g/L, mg|dL meaning mg/dL, and 10x9/L meaning 10^9/L. A tilde, inequality sign, decimal separator, plus/minus sign, or other ambiguous symbol must agree in at least two scans; never guess it. Do not average values or choose a closest number when scans conflict. Never infer, correct, calculate, or invent information. Put uncertain or conflicting readings only in the summary, not in labs. Keep the summary under 160 words.\n\n${ocrScans.slice(0,3).map((text,index)=>`OCR SCAN ${index+1}:\n${String(text).slice(0,8000)}`).join('\n\n')}`;
+    if(mode==='recipe-intent')prompt=`Interpret this natural-language recipe search. Return JSON only: {"terms":["up to four short recipe names or primary ingredients likely to produce results"],"tags":["up to four dietary or practical intent labels"]}. Remove words such as recipe, meal, easy, and dinner from terms unless essential. Search: ${String(query).slice(0,300)}`;
+    if(mode==='recipe-analysis')prompt=`Analyze the normalized recipe below. Use Google Search when available to check a few reputable cooking references for technique, common variations, nutrition context, and preparation tips. Do not copy prose from sources and do not invent exact nutrition values. Return JSON only: {"overview":"what the meal is","nutrition":"brief nutrition explanation","suitableFor":"who may find it suitable, with sensible caveats","difficulty":"Easy, Moderate, or Advanced","flavor":"short flavor profile","tips":["helpful tips"],"substitutions":["practical substitutions"],"storage":"storage guidance when reasonably supported","tags":["short nutrition or practical tags"]}. Recipe: ${JSON.stringify(recipe).slice(0,24000)}`;
     const identifier = crypto.createHash('sha256').update(String(profile.localId || 'anonymous')).digest('hex').slice(0, 64);
-    const args = { ...settings, prompt: `${background}\n\nTask:\n${prompt}`, image, identifier };
+    const args = { ...settings, prompt: `${background}\n\nTask:\n${prompt}`, image, identifier,grounded:mode==='recipe-analysis' };
     const result = provider === 'openai' ? await callOpenAI(args) : provider === 'gemini' ? await callGemini(args) : await callDeepSeek(args);
     if (!result.response.ok) {
       console.error(`${provider} request failed`, result.response.status, result.data?.error?.code || result.data?.error?.status);
@@ -170,6 +197,13 @@ ${JSON.stringify({ profile, context }).slice(0, 24000)}`;
       if (!parsed) return NextResponse.json({ error: 'The AI explanation arrived in an unreadable format. No blood values were saved. Please retry.', requestId }, { status: 502 });
       return NextResponse.json({ text: plainText(parsed.summary), labs: parsed.labs, reportDate: parsed.reportDate, model: settings.model, provider, requestId });
     }
+    if (mode === 'chat') {
+      const parsed=parseChatResult(result.text);
+      if(!parsed.text)return NextResponse.json({error:'The AI returned no readable response. Please try again.',requestId},{status:502});
+      return NextResponse.json({...parsed,model:settings.model,provider,requestId});
+    }
+    if(mode==='recipe-intent')return NextResponse.json({...parseRecipeIntent(result.text),model:settings.model,provider,requestId});
+    if(mode==='recipe-analysis'){const parsed=parseRecipeAnalysis(result.text);if(!parsed)return NextResponse.json({error:'The recipe summary arrived in an unreadable format. Please retry.',requestId},{status:502});return NextResponse.json({...parsed,sources:result.sources||[],model:settings.model,provider,requestId})}
     const text = plainText(result.text);
     if (!text) return NextResponse.json({ error: 'The AI returned no readable result. Please try again.', requestId }, { status: 502 });
     return NextResponse.json({ text, model: settings.model, provider, requestId });

@@ -195,19 +195,36 @@ function Chat({ onClose, profile }) {
   const [loading, setLoading] = useState(false);
   const endRef = useRef();
   useEffect(()=>endRef.current?.scrollIntoView({behavior:'smooth'}),[messages,loading]);
+  function decideActivities(index,confirmed){
+    setMessages(current=>current.map((message,itemIndex)=>itemIndex===index?{...message,activityDecision:confirmed?'saved':'dismissed'}:message));
+    if(!confirmed)return;
+    const proposed=messages[index]?.activities||[];if(!proposed.length)return;
+    let existing={};try{existing=JSON.parse(localStorage.getItem('wc-activity')||'{}')}catch{}
+    const today=new Date().toISOString().slice(0,10);const currentTasks=existing.tasksDate===today&&Array.isArray(existing.tasks)?existing.tasks:[];const keys=new Set(currentTasks.map(task=>`${task.title}|${task.duration}`.toLowerCase()));
+    const added=proposed.filter(task=>!keys.has(`${task.title}|${task.duration}`.toLowerCase())).map((task,itemIndex)=>({...task,id:`ai-${Date.now().toString(36)}-${itemIndex}`,done:false,source:'AI helper'}));
+    const next={...existing,tasks:[...currentTasks,...added],tasksDate:today,plan:existing.plan||added[0]&&{title:added[0].title,duration:added[0].duration},done:existing.plan?existing.done:false};
+    localStorage.setItem('wc-activity',JSON.stringify(next));window.dispatchEvent(new CustomEvent('wc-storage-updated',{detail:{key:'wc-activity'}}));
+  }
+  function decideRecipes(index,confirmed){
+    setMessages(current=>current.map((message,itemIndex)=>itemIndex===index?{...message,recipeDecision:confirmed?'saved':'dismissed'}:message));
+    if(!confirmed)return;const proposed=messages[index]?.recipeIdeas||[];if(!proposed.length)return;
+    let existing=[];try{existing=JSON.parse(localStorage.getItem('wc-ai-recipe-ideas')||'[]')}catch{}
+    const titles=new Set(existing.map(recipe=>recipe.title.toLowerCase()));const added=proposed.filter(recipe=>!titles.has(recipe.title.toLowerCase())).map(recipe=>({...recipe,savedAt:new Date().toISOString()}));
+    localStorage.setItem('wc-ai-recipe-ideas',JSON.stringify([...added,...existing].slice(0,30)));window.dispatchEvent(new CustomEvent('wc-storage-updated',{detail:{key:'wc-ai-recipe-ideas'}}));
+  }
   async function send(e) {
     e.preventDefault(); if (!input.trim() || loading) return;
     const next=[...messages,{role:'user',text:input.trim()}]; setMessages(next);setInput('');setLoading(true);
     try {
       const context={meals:JSON.parse(localStorage.getItem('wc-meals')||'{}'),activity:JSON.parse(localStorage.getItem('wc-activity')||'{}'),symptoms:JSON.parse(localStorage.getItem('wc-checkin')||'{}'),bloodWork:JSON.parse(localStorage.getItem('wc-blood-v2')||'[]')};
       const result=await callAi({mode:'chat',profile,context,messages:next});
-      setMessages(m=>[...m,{role:'assistant',text:result.text}]);
+      setMessages(m=>[...m,{role:'assistant',text:result.text,activities:result.activities||[],activityDecision:null,recipeIdeas:result.recipeIdeas||[],recipeDecision:null}]);
     } catch(error) { setMessages(m=>[...m,{role:'error',text:error.message}]); }
     finally {setLoading(false)}
   }
   return <section className="fixed inset-x-0 bottom-0 z-[60] mx-auto flex h-[min(82vh,720px)] max-w-md flex-col overflow-hidden rounded-t-[28px] bg-surface shadow-2xl" role="dialog" aria-modal="true" aria-label="Wellness AI helper">
     <header className="flex items-center gap-3 border-b border-line p-4"><span className="flex h-11 w-11 items-center justify-center rounded-full bg-teal text-white"><Smile/></span><div className="flex-1"><h2 className="font-display text-lg font-bold">Wellness AI</h2><p className="text-xs text-inkSoft">Your wellness thinking partner</p></div><button className="icon-button rotate-45" onClick={onClose} aria-label="Close AI helper"><Icon name="plus"/></button></header>
-    <div className="flex-1 space-y-3 overflow-y-auto bg-canvas/60 p-4" aria-live="polite">{messages.map((m,i)=><div key={i} className={`max-w-[86%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${m.role==='user'?'ml-auto bg-teal text-white':m.role==='error'?'bg-clay-light text-clay':'bg-surface text-ink shadow-sm'}`}>{m.text}</div>)}{loading&&<div className="w-fit rounded-2xl bg-surface px-4 py-3 text-sm text-inkSoft">Thinking…</div>}<div ref={endRef}/></div>
+    <div className="flex-1 space-y-3 overflow-y-auto bg-canvas/60 p-4" aria-live="polite">{messages.map((m,i)=><div key={i} className={`max-w-[90%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${m.role==='user'?'ml-auto bg-teal text-white':m.role==='error'?'bg-clay-light text-clay':'bg-surface text-ink shadow-sm'}`}><p className="whitespace-pre-line">{m.text}</p>{m.activities?.length>0&&<div className="mt-3 border-t border-line pt-3"><p className="font-bold">Suggested activities</p><div className="mt-2 space-y-2">{m.activities.map((activity,itemIndex)=><div key={itemIndex} className="rounded-xl bg-canvas p-3"><p className="font-bold">{activity.title}</p><p className="mt-1 text-xs text-inkSoft">{activity.duration}</p></div>)}</div>{m.activityDecision===null?<><p className="mt-3 font-bold">Add these to your planned activities?</p><div className="mt-2 grid grid-cols-2 gap-2"><button type="button" className="min-h-touch rounded-xl border border-line font-bold text-inkSoft" onClick={()=>decideActivities(i,false)}>Not now</button><button type="button" className="min-h-touch rounded-xl bg-teal font-bold text-white" onClick={()=>decideActivities(i,true)}>Confirm</button></div></>:<p className={`mt-3 rounded-xl p-3 font-bold ${m.activityDecision==='saved'?'bg-teal-light text-teal-dark':'bg-canvas text-inkSoft'}`}>{m.activityDecision==='saved'?'Added to Planned Activities':'Activities were not added'}</p>}</div>}{m.recipeIdeas?.length>0&&<div className="mt-3 border-t border-line pt-3"><p className="font-bold">Recipe idea</p><div className="mt-2 space-y-2">{m.recipeIdeas.map(recipe=><div key={recipe.id} className="rounded-xl bg-gold-light p-3"><p className="font-display text-lg font-bold">{recipe.title}</p><p className="mt-1 text-xs text-inkSoft">{recipe.overview}</p><p className="mt-2 font-bold text-teal-dark">{recipe.protein||'Protein estimate unavailable'}</p></div>)}</div>{m.recipeDecision===null?<><p className="mt-3 font-bold">Does this food idea look good? Add it to Meal Ideas?</p><div className="mt-2 grid grid-cols-2 gap-2"><button type="button" className="min-h-touch rounded-xl border border-line font-bold text-inkSoft" onClick={()=>decideRecipes(i,false)}>Not now</button><button type="button" className="min-h-touch rounded-xl bg-teal font-bold text-white" onClick={()=>decideRecipes(i,true)}>Confirm recipe</button></div></>:<p className={`mt-3 rounded-xl p-3 font-bold ${m.recipeDecision==='saved'?'bg-teal-light text-teal-dark':'bg-canvas text-inkSoft'}`}>{m.recipeDecision==='saved'?'Added to Meal Ideas':'Recipe was not added'}</p>}</div>}</div>)}{loading&&<div className="w-fit rounded-2xl bg-surface px-4 py-3 text-sm text-inkSoft">Thinking…</div>}<div ref={endRef}/></div>
     <div className="border-t border-line bg-surface"><form onSubmit={send} className="flex gap-2 p-3 pb-2"><label className="sr-only" htmlFor="ai-message">Message</label><input id="ai-message" className="field" value={input} onChange={e=>setInput(e.target.value)} placeholder="Ask about your wellness log"/><button className="icon-button shrink-0 bg-teal text-white hover:bg-teal-dark" disabled={!input.trim()||loading} aria-label="Send message"><Icon name="send" size={20}/></button></form><p className="px-4 pb-3 text-center text-[11px] leading-relaxed text-inkSoft/70">AI can make mistakes. Use its responses to help you think, not as a diagnosis or emergency service.</p></div>
   </section>;
 }

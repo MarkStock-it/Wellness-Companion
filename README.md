@@ -33,6 +33,7 @@ DEEPSEEK_MODEL=deepseek-v4-flash
 
 GEMINI_API_KEY=your_gemini_api_key
 GEMINI_MODEL=gemini-3.1-flash-lite
+NEXT_PUBLIC_MEALDB_KEY=your_themealdb_supporter_key
 ```
 
 Supported routing:
