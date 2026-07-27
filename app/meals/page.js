@@ -8,7 +8,7 @@ import Modal from '@/components/Modal';
 import useStoredState from '@/components/useStoredState';
 import { callAi, getAiSettings, readFileAsDataUrl, requestAiSetup } from '@/lib/aiClient';
 
-const defaults = { Breakfast: 'Oatmeal with banana and tea', Lunch: 'Chicken soup and soft bread' };
+const defaults = {};
 const slots = ['Breakfast', 'Lunch', 'Dinner', 'Snacks'];
 
 export default function MealsPage() {

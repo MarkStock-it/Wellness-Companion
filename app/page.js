@@ -12,12 +12,16 @@ export default function HomePage() {
   useEffect(()=>{try{setName(JSON.parse(localStorage.getItem('wc-profile')||'{}').name||'there')}catch{}},[]);
   const [meals] = useStoredState('wc-meals', {});
   const [activity] = useStoredState('wc-activity', {});
+  const [bloodWork] = useStoredState('wc-blood-v2', []);
+  const [checkin] = useStoredState('wc-checkin', {});
   const logged = Object.values(meals).filter(Boolean).length;
+  const latestBlood = bloodWork[0];
+  const checkedInToday = checkin._date === new Date().toISOString().slice(0,10);
   const cards = [
     { href: '/meals', title: "Today's meals", value: `${logged} of 4 logged`, detail: logged ? 'You are making steady progress' : 'Start with your first meal', icon: 'meals', tone: 'bg-gold-light text-gold' },
     { href: '/activity', title: 'Energy level', value: activity.energy || 'Not checked', detail: activity.energy ? 'Updated today' : 'How are you feeling?', icon: 'energy', tone: 'bg-teal-light text-teal-dark' },
-    { href: '/blood-work', title: 'Next blood test', value: 'August 4', detail: '8 days away · 9:00 AM', icon: 'calendar', tone: 'bg-clay-light text-clay' },
-    { href: '/more', title: 'Reminders', value: '2 for today', detail: 'Next: afternoon medication', icon: 'bell', tone: 'bg-[#EEE8F5] text-[#6B4D88]' },
+    { href: '/blood-work', title: 'Blood work', value: latestBlood ? `${latestBlood.labs?.length || 0} values` : 'No results yet', detail: latestBlood ? `Latest: ${new Date(`${latestBlood.date}T12:00`).toLocaleDateString('en-US',{month:'short',day:'numeric'})}` : 'Add or scan a result', icon: 'blood', tone: 'bg-clay-light text-clay' },
+    { href: '/symptoms', title: 'Daily check-in', value: checkedInToday ? 'Completed' : 'Not completed', detail: checkedInToday ? 'Saved for today' : 'Log how you feel', icon: 'clipboard', tone: 'bg-[#EEE8F5] text-[#6B4D88]' },
   ];
   return (
     <div className="px-5 pb-5 pt-8">
@@ -33,9 +37,9 @@ export default function HomePage() {
       <Card className="relative mt-7 overflow-hidden border-0 bg-teal p-6 text-white">
         <div className="absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/10" />
         <p className="text-sm font-bold uppercase tracking-widest text-teal-light">Today&apos;s focus</p>
-        <h2 className="mt-2 font-display text-2xl font-bold">Small steps count</h2>
-        <p className="mt-2 max-w-[17rem] text-base leading-relaxed text-white/85">Log your meals and take a few minutes for gentle movement.</p>
-        <Link href="/activity" className="mt-5 inline-flex min-h-touch items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-bold text-teal-dark">View today&apos;s plan <Icon name="chevron" size={18}/></Link>
+        <h2 className="mt-2 font-display text-2xl font-bold">{activity.plan ? activity.plan.title : 'Build your day'}</h2>
+        <p className="mt-2 max-w-[17rem] text-base leading-relaxed text-white/85">{activity.plan ? `${activity.plan.duration}${activity.done?' · Completed':' · Not completed yet'}` : 'Add a movement plan when you are ready.'}</p>
+        <Link href="/activity" className="mt-5 inline-flex min-h-touch items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-bold text-teal-dark">{activity.plan?'View today’s plan':'Add a plan'} <Icon name="chevron" size={18}/></Link>
       </Card>
 
       <div className="mb-3 mt-8 flex items-end justify-between">

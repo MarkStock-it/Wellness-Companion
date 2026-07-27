@@ -22,6 +22,6 @@ export default function SymptomsPage() {
     <div className="mt-5 space-y-4">{questions.map(([key,label,options]) => <Card key={key}><div className="flex items-center justify-between"><h2 className="font-display text-xl font-bold">{label}</h2>{answers[key] && <Icon name="check" className="text-teal"/>}</div>
       <div className="mt-4 grid grid-cols-3 gap-2">{options.map((text,i) => { const selected=answers[key]===text; return <button key={text} aria-pressed={selected} onClick={() => {setSaved(false);setAnswers({...answers,[key]:text})}} className={`flex min-h-[86px] flex-col items-center justify-center gap-1 rounded-2xl border text-sm font-bold ${selected?'border-teal bg-teal-light text-teal-dark':'border-line bg-canvas text-inkSoft'}`}><Face level={key==='nausea'||key==='fatigue'?2-i:i}/>{text}</button>})}</div>
     </Card>)}</div>
-    <BigButton className="mt-5" disabled={Object.keys(answers).length < 4} onClick={() => {setStored(answers);setSaved(true)}}>{saved ? <><Icon name="check"/> Check-in saved</> : 'Save today’s check-in'}</BigButton>
+    <BigButton className="mt-5" disabled={questions.some(([key])=>!answers[key])} onClick={() => {setStored({...answers,_date:new Date().toISOString().slice(0,10)});setSaved(true)}}>{saved ? <><Icon name="check"/> Check-in saved</> : 'Save today’s check-in'}</BigButton>
   </div>;
 }
