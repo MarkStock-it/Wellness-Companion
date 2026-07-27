@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import Card from '@/components/Card';
 import Icon from '@/components/Icon';
 import useStoredState from '@/components/useStoredState';
@@ -7,6 +8,8 @@ import useStoredState from '@/components/useStoredState';
 const today = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric' }).format(new Date());
 
 export default function HomePage() {
+  const [name,setName]=useState('there');
+  useEffect(()=>{try{setName(JSON.parse(localStorage.getItem('wc-profile')||'{}').name||'there')}catch{}},[]);
   const [meals] = useStoredState('wc-meals', {});
   const [activity] = useStoredState('wc-activity', {});
   const logged = Object.values(meals).filter(Boolean).length;
@@ -21,10 +24,10 @@ export default function HomePage() {
       <header className="flex items-start justify-between">
         <div>
           <p className="eyebrow">{today}</p>
-          <h1 className="mt-2 font-display text-3xl font-bold tracking-tight">Good morning, Dolores</h1>
+          <h1 className="mt-2 font-display text-3xl font-bold tracking-tight">Good morning, {name}</h1>
           <p className="mt-2 text-base text-inkSoft">Here is your wellness plan for today.</p>
         </div>
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-teal text-base font-bold text-white" aria-label="Dolores profile">DS</div>
+        <button onClick={()=>window.dispatchEvent(new Event('wc-edit-profile'))} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-teal text-base font-bold uppercase text-white" aria-label="Edit profile">{name.slice(0,2)}</button>
       </header>
 
       <Card className="relative mt-7 overflow-hidden border-0 bg-teal p-6 text-white">

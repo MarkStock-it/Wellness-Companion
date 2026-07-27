@@ -1,5 +1,6 @@
 import './globals.css';
 import BottomNav from '@/components/BottomNav';
+import PrototypeShell from '@/components/PrototypeShell';
 
 export const metadata = {
   title: 'Wellness Companion',
@@ -24,6 +25,7 @@ export default function RootLayout({ children }) {
         <div className="mx-auto flex min-h-screen max-w-md flex-col pb-24">
           <main className="flex-1">{children}</main>
         </div>
+        <PrototypeShell />
         <BottomNav />
       </body>
     </html>

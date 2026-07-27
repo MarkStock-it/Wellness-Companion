@@ -1,95 +1,60 @@
-# Wellness Companion — Wireframe (Visual Prototype Only)
+# Wellness Companion — AI Prototype
 
-A Next.js + React + Tailwind wireframe for a cancer-nutrition and wellness
-companion app, designed to be easy for older adults to use. **This is a
-structural/visual prototype only** — there is no backend, no database, no
-real API calls, and no data persistence. All content is placeholder data.
+> **Scope change:** this project is no longer a visual-only wireframe. It is a
+> working local-first prototype with a server-side OpenAI API proxy. It is not
+> production-ready, clinically validated, or a medical device.
 
-## Running it
+The app helps users track meals, activity, symptoms, and blood work. It includes
+an optional AI helper, live wellness summaries, meal-photo estimates, and
+lab-report extraction.
+
+## Run locally
+
+Run commands from this directory, not its parent:
+
+```bash
+cd "/Users/markelysalinas/Desktop/GIT - PORT/Wellnes Companion/Wellness-Companion"
+cp .env.example .env.local
+```
+
+Add an OpenAI API key to `.env.local`:
+
+```dotenv
+OPENAI_API_KEY=your_api_key_here
+OPENAI_MODEL=gpt-5.6-terra
+```
+
+Then:
 
 ```bash
 npm install
 npm run dev
 ```
 
-Then open http://localhost:3000. Best viewed at a phone width (this is
-mobile-first); resize your browser down to ~390px or use dev-tools device mode.
+Open http://localhost:3000.
 
-## Screens
+## Data boundary
 
-| Screen | Route | Reached via |
-|---|---|---|
-| Home / Dashboard | `/` | Bottom nav |
-| Meal Log | `/meals` | Bottom nav |
-| Blood Work Tracker | `/blood-work` | Bottom nav |
-| Activity / Movement | `/activity` | Bottom nav |
-| More (hub) | `/more` | Bottom nav |
-| Meal Ideas Library | `/meal-ideas` | via More |
-| Symptom Check-in | `/symptoms` | via More |
-| AI Health Summary | `/ai-summary` | via More |
-| Resources / Talk to a Professional | `/resources` | via More |
+- Profile and wellness logs are stored in browser `localStorage`.
+- The API key stays server-side and is never exposed to the browser.
+- When an AI feature is used, the app sends the relevant profile/log context,
+  question, or image to OpenAI for processing.
+- Responses API calls set `store: false`. OpenAI may still retain API content
+  temporarily for abuse monitoring under the API account's data-control terms.
+- Users must explicitly acknowledge this boundary before AI features unlock.
+- Chat history is held only in the current page session.
 
-The bottom nav intentionally stays at 5 items (Home, Meals, Blood Work,
-Activity, More) per the elderly-friendly brief — the four remaining screens
-live one tap deep behind "More" rather than crowding the nav bar, but
-navigation is otherwise always one tap from anywhere.
+This disclaimer and the product's health-safety wording require legal and
+clinical review before use with real patients.
 
-## Structure
+## AI behavior and fallbacks
 
-```
-app/
-  layout.js         — shared shell + bottom nav, PWA-style metadata
-  globals.css        — base type size (18px+), focus states, reduced motion
-  page.js            — Home / Dashboard
-  meals/page.js
-  blood-work/page.js
-  activity/page.js
-  more/page.js
-  meal-ideas/page.js
-  symptoms/page.js
-  ai-summary/page.js
-  resources/page.js
-components/
-  BottomNav.js       — fixed, consistent nav bar (icon + text label)
-  PageHeader.js       — consistent title/back-button placement
-  Card.js             — shared card container
-  BigButton.js        — shared 48px+ tap-target button
-```
+The server prompt requires short, plain-language output; uncertainty labels;
+no diagnosis, treatment, dosage, or medication-change instructions; and care
+team escalation for clinical decisions. The UI exposes clear retryable errors
+for missing configuration, unsupported or oversized images, rate limits, empty
+model output, and general provider failures.
 
-Everything is a plain, unstyled placeholder underneath the visuals — the
-component boundaries are drawn so real logic can be dropped in later without
-restructuring the UI.
-
-## Design rationale (tokens)
-
-- **Colors** (`tailwind.config.js`): warm off-white background (`canvas`),
-  warm near-black text (`ink`, not gray, for contrast), one confident teal
-  accent for primary actions, a warm clay/gold used sparingly for secondary
-  emphasis. No cold clinical blues, no low-contrast grays.
-- **Type**: minimum 18px body text site-wide (`html { font-size: 18px }`),
-  headings scale up to 32px, a serif display face for headings to feel warm
-  and readable rather than clinical, plain-language labels everywhere.
-- **Touch targets**: every interactive element uses `min-h-touch`/`min-w-touch`
-  (48px) via the Tailwind theme.
-- **Motion**: no page-transition animation; the only animation is a simple
-  loading spinner on the AI Summary screen, and `prefers-reduced-motion` is
-  respected globally in `globals.css`.
-- **Navigation**: the bottom nav is rendered once in `app/layout.js`, so its
-  position and items never change between screens.
-
-## Open decisions left for the implementation phase
-
-These are intentionally left as `// TODO` comments in the code, not resolved
-here:
-
-- **Data sources** for meals, blood work, activity, and symptoms (manual
-  entry vs. imports, e.g. from a lab portal or wearable).
-- **Backend / API-key handling** — any real API calls (especially to an AI
-  summary provider) should be made from a server route, never the client.
-- **AI output tone & safety guardrails** — wording rules, what the model is
-  and isn't allowed to say (no diagnosis, no dosage/treatment advice), and
-  how the "not medical advice" disclaimer is enforced at the API level, not
-  just in the UI text.
-- **Photo capture / food recognition** for the Meal Log's "Take Photo" button.
-- **Nutrition support directory** for the Resources screen's "Find Free/
-  Low-Cost Nutrition Support" button.
+Meal-photo estimates are intentionally limited to calories, protein, and one or
+two notes. Lab extraction supports arbitrary named values and asks the model not
+to infer unreadable or missing information.
