@@ -17,12 +17,28 @@ cd "/Users/markelysalinas/Desktop/GIT - PORT/Wellnes Companion/Wellness-Companio
 cp .env.example .env.local
 ```
 
-Add an OpenAI API key to `.env.local`:
+Choose an AI provider and add its key to `.env.local`:
 
 ```dotenv
-OPENAI_API_KEY=your_api_key_here
-OPENAI_MODEL=gpt-5.6-terra
+AI_PROVIDER=deepseek
+AI_VISION_PROVIDER=gemini
+
+DEEPSEEK_API_KEY=your_deepseek_api_key
+DEEPSEEK_MODEL=deepseek-v4-flash
+
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-3.6-flash
 ```
+
+Supported routing:
+
+- `openai`: chat, summaries, meal photos, and lab-report photos
+- `gemini`: chat, summaries, meal photos, and lab-report photos
+- `deepseek`: chat and summaries
+
+DeepSeek's documented chat API currently accepts text message content. Configure
+`AI_VISION_PROVIDER=gemini` or `openai` when DeepSeek is the main provider and
+photo analysis is needed.
 
 Then:
 
@@ -38,9 +54,10 @@ Open http://localhost:3000.
 - Profile and wellness logs are stored in browser `localStorage`.
 - The API key stays server-side and is never exposed to the browser.
 - When an AI feature is used, the app sends the relevant profile/log context,
-  question, or image to OpenAI for processing.
-- Responses API calls set `store: false`. OpenAI may still retain API content
-  temporarily for abuse monitoring under the API account's data-control terms.
+  question, or image to the configured provider for processing.
+- Provider-side processing and retention follow the configured provider's API
+  terms. OpenAI requests set `store: false`; this option does not apply to other
+  providers.
 - Users must explicitly acknowledge this boundary before AI features unlock.
 - Chat history is held only in the current page session.
 
