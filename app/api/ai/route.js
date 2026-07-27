@@ -61,7 +61,7 @@ function parseLabResult(value) {
 
 function providerSettings(provider) {
   if (provider === 'openai') return { key: process.env.OPENAI_API_KEY, model: process.env.OPENAI_MODEL || 'gpt-5.6-terra' };
-  if (provider === 'gemini') return { key: process.env.GEMINI_API_KEY, model: process.env.GEMINI_MODEL || 'gemini-3.6-flash' };
+  if (provider === 'gemini') return { key: process.env.GEMINI_API_KEY, model: process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite' };
   if (provider === 'deepseek') return { key: process.env.DEEPSEEK_API_KEY, model: process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash' };
   return {};
 }
