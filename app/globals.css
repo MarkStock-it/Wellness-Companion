@@ -115,6 +115,14 @@ input[type="date"].field:disabled {
   animation: draw-trend 600ms cubic-bezier(.22,1,.36,1) forwards;
 }
 
+@keyframes scanner-enter {
+  from { opacity: 0; transform: translateY(18px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.scanner-enter {
+  animation: scanner-enter 320ms cubic-bezier(.22,1,.36,1) both;
+}
+
 /* Visible keyboard focus everywhere — never remove this for this audience. */
 :focus-visible {
   outline: 3px solid theme('colors.teal.DEFAULT');

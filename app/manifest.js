@@ -34,7 +34,8 @@ export default function manifest() {
     ],
     shortcuts: [
       { name: 'Log a meal', short_name: 'Meal', url: '/meals', icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }] },
-      { name: 'Blood work', short_name: 'Blood work', url: '/blood-work', icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }] },
+      { name: 'Blood trends', short_name: 'Blood', url: '/blood-work', icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }] },
+      { name: 'Blood Scanner', short_name: 'Scanner', url: '/blood-work/scanner', icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }] },
       { name: 'Daily check-in', short_name: 'Check-in', url: '/symptoms', icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }] },
     ],
   };

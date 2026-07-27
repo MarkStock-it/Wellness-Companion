@@ -1,0 +1,6 @@
+'use client';
+export default function MobileDateFields({value,onChange,name='date'}){
+ const [year,month,day]=value.split('-').map(Number);const now=new Date();const years=Array.from({length:11},(_,i)=>now.getFullYear()-10+i);const days=new Date(year,month,0).getDate();
+ function set(part,next){const date={year,month,day};date[part]=Number(next);date.day=Math.min(date.day,new Date(date.year,date.month,0).getDate());onChange(`${date.year}-${String(date.month).padStart(2,'0')}-${String(date.day).padStart(2,'0')}`)}
+ return <div><input type="hidden" name={name} value={value}/><div className="grid grid-cols-[1.35fr_.8fr_1fr] gap-2"><label><span className="label">Month</span><select className="field px-3" value={month} onChange={e=>set('month',e.target.value)}>{Array.from({length:12},(_,i)=><option key={i+1} value={i+1}>{new Date(2000,i,1).toLocaleDateString('en-US',{month:'short'})}</option>)}</select></label><label><span className="label">Day</span><select className="field px-3" value={day} onChange={e=>set('day',e.target.value)}>{Array.from({length:days},(_,i)=><option key={i+1}>{i+1}</option>)}</select></label><label><span className="label">Year</span><select className="field px-3" value={year} onChange={e=>set('year',e.target.value)}>{years.map(item=><option key={item}>{item}</option>)}</select></label></div></div>
+}
