@@ -6,7 +6,7 @@ import BigButton from '@/components/BigButton';
 import Icon from '@/components/Icon';
 import useStoredState from '@/components/useStoredState';
 import { callAi, getAiSettings, readFileAsDataUrl, requestAiSetup } from '@/lib/aiClient';
-import { estimateFromText } from '@/lib/mealNutrition';
+import { appendSnackLog, estimateFromText } from '@/lib/mealNutrition';
 
 const slots=['Breakfast','Lunch','Dinner','Snacks'];
 
@@ -17,7 +17,7 @@ export default function MealScanner(){
  function reset(){setPreview('');setAnalysis('');setNutrition(null);setError('');setSaved(false)}
  async function analyze(file){if(!file)return;const settings=getAiSettings();if(!settings.profile||!settings.consent||!settings.config?.apiKey){requestAiSetup();return}setAnalyzing(true);setAnalysis('');setNutrition(null);setError('');setSaved(false);try{const image=await readFileAsDataUrl(file,{maxSide:1024,quality:.76});setPreview(image);const result=await callAi({mode:'meal',image,profile:settings.profile});setAnalysis(result.text);setNutrition(estimateFromText(result.text))}catch(reason){setError(reason.message)}finally{setAnalyzing(false)}}
  function chooseFile(e){const file=e.target.files?.[0];e.target.value='';analyze(file)}
- function save(){if(!analysis)return;setMeals(current=>({...current,[slot]:{detail:analysis,nutrition}}));setSaved(true)}
+ function save(){if(!analysis)return;setMeals(current=>slot==='Snacks'?{...current,Snacks:appendSnackLog(current.Snacks,analysis,nutrition)}:{...current,[slot]:{detail:analysis,nutrition}});setSaved(true)}
  return <div className="scanner-enter px-5 pb-5"><PageHeader title="Meal Scanner" backHref="/meals"/>
   <Card className="mt-4 overflow-hidden border-0 bg-teal p-6 text-white"><div className="flex items-start justify-between gap-4"><div><p className="text-sm font-bold uppercase tracking-widest text-teal-light">Photo estimate</p><h2 className="mt-1 font-display text-2xl font-bold">Scan your meal</h2><p className="mt-2 text-sm leading-relaxed text-white/75">Use a clear overhead or side photo with the full plate visible.</p></div><span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15"><Icon name="camera"/></span></div></Card>
   <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={chooseFile}/><input ref={uploadRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={chooseFile}/>

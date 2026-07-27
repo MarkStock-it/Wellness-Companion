@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Card from '@/components/Card';
 import Icon from '@/components/Icon';
 import useStoredState from '@/components/useStoredState';
+import { countLoggedMealSections } from '@/lib/mealNutrition';
 
 const today = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric' }).format(new Date());
 
@@ -14,7 +15,7 @@ export default function HomePage() {
   const [activity] = useStoredState('wc-activity', {});
   const [bloodWork] = useStoredState('wc-blood-v2', []);
   const [checkin] = useStoredState('wc-checkin', {});
-  const logged = Object.values(meals).filter(Boolean).length;
+  const logged = countLoggedMealSections(meals);
   const latestBlood = bloodWork[0];
   const checkedInToday = checkin._date === new Date().toISOString().slice(0,10);
   const cards = [
