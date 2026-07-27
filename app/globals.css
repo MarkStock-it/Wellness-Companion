@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  /* Elderly-friendly baseline: never smaller than 18px body text anywhere. */
+  font-size: 18px;
+}
+
+body {
+  @apply bg-canvas text-ink font-body;
+  min-height: 100vh;
+}
+
+/* Visible keyboard focus everywhere — never remove this for this audience. */
+:focus-visible {
+  outline: 3px solid theme('colors.teal.DEFAULT');
+  outline-offset: 2px;
+}
+
+/* Respect reduced-motion preference; app also ships with minimal motion by default. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Simple, calm spinner used only on the AI Summary loading placeholder. */
+@keyframes spin-slow {
+  to { transform: rotate(360deg); }
+}
+.spinner {
+  animation: spin-slow 1.2s linear infinite;
+}
