@@ -23,7 +23,7 @@ export default function MealsPage() {
   function save(e) { e.preventDefault(); setMeals({ ...meals, [editing]: detail.trim() }); setEditing(null); }
   async function analyzePhoto(file) {
     const settings = getAiSettings();
-    if (!settings.profile || !settings.consent) { requestAiSetup(); return; }
+    if (!settings.profile || !settings.consent || !settings.config?.apiKey) { requestAiSetup(); return; }
     setAnalysis(''); setAnalysisError(''); setAnalyzing(true);
     try {
       const image = await readFileAsDataUrl(file);

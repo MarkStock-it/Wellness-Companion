@@ -9,7 +9,7 @@ import { callAi, getAiSettings, requestAiSetup } from '@/lib/aiClient';
 export default function AiSummaryPage() {
   const [loading,setLoading]=useState(false);const [summary,setSummary]=useState('');const [error,setError]=useState('');
   async function refresh(){
-    const settings=getAiSettings();if(!settings.profile||!settings.consent){requestAiSetup();return}
+    const settings=getAiSettings();if(!settings.profile||!settings.consent||!settings.config?.apiKey){requestAiSetup();return}
     setLoading(true);setError('');
     try{const context={meals:JSON.parse(localStorage.getItem('wc-meals')||'{}'),activity:JSON.parse(localStorage.getItem('wc-activity')||'{}'),symptoms:JSON.parse(localStorage.getItem('wc-checkin')||'{}'),bloodWork:JSON.parse(localStorage.getItem('wc-blood-v2')||'[]')};const result=await callAi({mode:'summary',profile:settings.profile,context});setSummary(result.text)}
     catch(e){setError(e.message)}finally{setLoading(false)}

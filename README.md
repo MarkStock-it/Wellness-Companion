@@ -17,7 +17,12 @@ cd "/Users/markelysalinas/Desktop/GIT - PORT/Wellnes Companion/Wellness-Companio
 cp .env.example .env.local
 ```
 
-Choose an AI provider and add its key to `.env.local`:
+By default, the app asks the user to choose a provider and paste an API key
+before the first AI request. The key is stored in browser `sessionStorage` and
+is removed when that tab is closed.
+
+For a private, server-managed installation, `.env.local` can provide an
+optional fallback:
 
 ```dotenv
 AI_PROVIDER=deepseek
@@ -52,7 +57,10 @@ Open http://localhost:3000.
 ## Data boundary
 
 - Profile and wellness logs are stored in browser `localStorage`.
-- The API key stays server-side and is never exposed to the browser.
+- User-provided API keys are held in browser `sessionStorage`, sent transiently
+  through `/api/ai`, and are never written to the app's server storage or logs.
+- Browser-held keys are not appropriate for an untrusted public production
+  environment; use short-lived tokens or server-managed credentials there.
 - When an AI feature is used, the app sends the relevant profile/log context,
   question, or image to the configured provider for processing.
 - Provider-side processing and retention follow the configured provider's API
@@ -73,5 +81,8 @@ for missing configuration, unsupported or oversized images, rate limits, empty
 model output, and general provider failures.
 
 Meal-photo estimates are intentionally limited to calories, protein, and one or
-two notes. Lab extraction supports arbitrary named values and asks the model not
-to infer unreadable or missing information.
+two notes. Lab-report photos are processed first by a lazily loaded, browser-side
+Tesseract OCR worker. Only the extracted text is submitted to the AI provider,
+reducing multimodal token usage and keeping the report image on-device. The
+first scan may download OCR runtime/language assets. Low-text scans stop before
+an AI call, and extracted text is shown for user verification.
